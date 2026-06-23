@@ -1,0 +1,371 @@
+\selectlanguage{russian}
+\section{Метод}
+\label{sec:Method} \index{Method}
+
+Неизвестное соответствие внутри каждой группы естественно представить скрытой
+перестановкой. Тогда восстановление зависимости сводится к совместному оцениванию
+условного распределения наблюдений и распределения скрытой перестановки. В работе эта идея
+реализуется двумя разными способами. В нейросетевом подходе оба распределения задаются
+нейронными сетями, образующими вариационный автоэнкодер, и обучаются стохастическим
+градиентным методом. В подходе с явными смесями условный закон и ответственности имеют
+заданную аналитическую форму, поэтому их параметры обновляются модифицированным
+EM-алгоритмом без обратного распространения.
+
+\subsection{Нейросетевой вариационный подход}
+
+В первом подходе условное распределение $p_\theta(y\mid x)$ параметризуется нейросетевым
+декодером, а вариационное распределение перестановки
+$q_\phi(\sigma\mid x^n,y^n)$ --- нейросетевым энкодером вместе с
+Gumbel--Sinkhorn-преобразованием. Параметры $\theta$ и $\phi$ оптимизируются совместно как
+параметры вариационного автоэнкодера.
+
+\subsubsection{Вариационная целевая функция}
+\label{ssec:nelbo}
+
+Для группы $n$ используется точное маргинальное правдоподобие со скрытой перестановкой из
+формулы~\eqref{eq:global-marginal}:
+\begin{equation}
+p_\theta(y^n\mid x^n)
+=\sum_{\sigma\in S_M}p(\sigma)
+\prod_{m=1}^{M}p_\theta\bigl(y^n_{\sigma(m)}\mid x^n_m\bigr),
+\qquad p(\sigma)=\frac{1}{M!}.
+\label{eq:neural-exact-marginal}
+\end{equation}
+Прямая максимизация требует суммирования по $M!$ перестановкам. Чтобы избежать этого
+перебора, вводится вариационное распределение
+$q_\phi(\sigma\mid x^n,y^n)$ на всём множестве $S_M$. После замены меры и применения
+неравенства Йенсена получаем
+\begin{align}
+\log p_\theta(y^n\mid x^n)
+&=\log\mathbb{E}_{q_\phi}
+\left[
+\frac{p(\sigma)
+\prod_{m=1}^{M}p_\theta(y^n_{\sigma(m)}\mid x^n_m)}
+{q_\phi(\sigma\mid x^n,y^n)}
+\right] \nonumber\\
+&\geq
+\mathbb{E}_{q_\phi}
+\left[\sum_{m=1}^{M}\log p_\theta
+\bigl(y^n_{\sigma(m)}\mid x^n_m\bigr)\right]
+-\mathrm{KL}\left(
+q_\phi(\sigma\mid x^n,y^n)\,\|\,\mathcal{U}(S_M)
+\right)
+=:\mathcal{E}^n(\theta,\phi).
+\label{eq:permutation-elbo}
+\end{align}
+Отрицательная нижняя оценка обоснованности для всей выборки равна
+\begin{equation}
+\boxed{
+\mathcal{L}_{\mathrm{NELBO}}(\theta,\phi)
+=-\frac{1}{N}\sum_{n=1}^{N}\mathcal{E}^n(\theta,\phi).
+}
+\label{eq:nelbo}
+\end{equation}
+Разрыв между логарифмом правдоподобия и ELBO имеет точный вид
+\begin{equation}
+\log p_\theta(y^n\mid x^n)
+=\mathcal{E}^n(\theta,\phi)
++\mathrm{KL}\left(
+q_\phi(\sigma\mid x^n,y^n)\,\|\,
+p_\theta(\sigma\mid x^n,y^n)
+\right).
+\label{eq:permutation-elbo-gap}
+\end{equation}
+Таким образом, в теоретической постановке скрытая переменная остаётся одной перестановкой
+всей группы: перехода к независимым локальным назначениям нет. При совпадении
+вариационного и истинного апостериорного распределений граница становится точной.
+
+\subsubsection{Gumbel--Sinkhorn-параметризация перестановки}
+\label{ssec:relax}
+
+Энкодер должен задавать распределение на перестановках, однако произвольная модель выдаёт
+неограниченную матрицу оценок. Перестановочная матрица
+$P\in\{0,1\}^{M\times M}$ содержит одну единицу в каждой строке и каждом столбце. Её
+непрерывной релаксацией служит многогранник Биркгофа
+\begin{equation}
+\mathcal{B}_M=\left\{
+P\in\mathbb{R}_{\geq 0}^{M\times M}:
+\sum_{k=1}^{M}P_{mk}=1\ \forall m,\quad
+\sum_{m=1}^{M}P_{mk}=1\ \forall k
+\right\}.
+\label{eq:birkhoff-polytope}
+\end{equation}
+По теореме Биркгофа--фон Неймана $\mathcal{B}_M$ является выпуклой оболочкой матриц
+перестановок, поэтому его элементы интерпретируются как мягкие биективные сопоставления.
+
+Пусть $\Phi=(\ell_{mk})\in\mathbb{R}^{M\times M}$ --- матрица логитов энкодера. Для
+дифференцируемой выборки к её элементам добавляется независимый шум
+$G_{mk}\sim\operatorname{Gumbel}(0,1)$, после чего применяется Sinkhorn-нормализация
+~\cite{mena2018sinkhorn}. В логарифмическом пространстве одна итерация имеет вид
+\begin{align}
+\log\alpha_{mk}&\leftarrow\log\alpha_{mk}
+-\operatorname{logsumexp}_{k'}(\log\alpha_{mk'}),\\
+\log\alpha_{mk}&\leftarrow\log\alpha_{mk}
+-\operatorname{logsumexp}_{m'}(\log\alpha_{m'k}).
+\end{align}
+Повторение нормализаций строк и столбцов приближает экспоненту результата к
+$\mathcal{B}_M$. В режиме обучения и при детерминированном выводе используются
+соответственно
+\begin{equation}
+z=\operatorname{Sinkhorn}\!\left(\frac{\Phi+G}{\tau}\right),
+\qquad
+z^{\mathrm{det}}=\operatorname{Sinkhorn}\!\left(\frac{\Phi}{\tau}\right).
+\label{eq:stochastic-deterministic-z}
+\end{equation}
+При конечной температуре $\tau>0$ матрицы являются мягкими перестановками из
+$\mathcal{B}_M$, а при $\tau\to0$ концентрируются около вершин, соответствующих жёстким
+перестановкам. Слишком малая температура ухудшает численную устойчивость матричного
+масштабирования~\cite{schmitzer2019stabilized}. Одна Sinkhorn-итерация требует $O(M^2)$
+операций, а $T$ итераций --- $O(TM^2)$.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{Latent_transform.png}
+\caption{Преобразование читается слева направо: к попарным логитам энкодера добавляется
+шум Gumbel, после чего Sinkhorn-нормализация строк и столбцов формирует мягкую матрицу
+перестановки. При детерминированном выводе шум не добавляется.}
+\label{fig:latent-transform}
+\end{figure}
+
+\subsubsection{Нейросетевой энкодер}
+\label{ssec:encoder}
+
+Для каждой пары $(x^n_m,y^n_k)$ строится периодическое представление
+\begin{equation}
+\left[
+\sin(2\pi x^n_m),\ \cos(2\pi x^n_m),\
+\sin(2\pi y^n_k),\ \cos(2\pi y^n_k)
+\right]\in\mathbb{R}^4.
+\end{equation}
+Общая для всех пар полносвязная сеть преобразует это представление в логит
+$\ell^n_{mk}$. Все логиты образуют матрицу $\Phi^n$, которая затем обрабатывается
+Gumbel--Sinkhorn-преобразованием~\eqref{eq:stochastic-deterministic-z}. Параметры
+$\phi$ общие для всех групп, поэтому энкодер амортизирует вывод: для новой группы не
+требуется отдельная оптимизация вариационных параметров.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth]{Encoder.png}
+\caption{Нейросетевая параметризация попарных логитов вариационного распределения.}
+\label{fig:encoder-architecture}
+\end{figure}
+
+\subsubsection{Нейросетевой декодер}
+\label{ssec:decoder}
+
+Условное распределение задаётся нейросетевой смесью из $K$ компонент:
+\begin{equation}
+p_\theta(y\mid x)
+=\sum_{r=1}^{K}\pi_r(x)\,
+\tilde{\mathcal{N}}\bigl(y\mid\mu_r(x),\epsilon^2\bigr).
+\label{eq:decoder-mixture}
+\end{equation}
+Сеть получает периодические признаки $[\sin(2\pi x),\cos(2\pi x)]$ и возвращает средние
+$\mu_r(x)$ и логиты весов $\alpha_r(x)$, причём
+\begin{equation}
+\pi_r(x)=\frac{\exp(\alpha_r(x))}{\sum_{s=1}^{K}\exp(\alpha_s(x))}.
+\label{eq:decoder-mixture-weights}
+\end{equation}
+Дисперсия $\epsilon^2$ фиксируется и совпадает с уровнем шума генератора в синтетическом
+эксперименте.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\linewidth]{Decoder.png}
+\caption{Нейросетевая параметризация средних и весов условной смеси.}
+\label{fig:decoder-architecture}
+\end{figure}
+
+Данные рассматриваются на одномерном торе $\mathbb{S}^1=\mathbb{R}/\mathbb{Z}$; для
+$y,\mu\in\mathbb{S}^1$ круговой остаток определяется как
+$r(y,\mu)=((y-\mu+\tfrac12)\bmod 1)-\tfrac12$. Логарифм обёрнутой нормальной плотности
+приближается вкладом ближайшего периодического образа:
+\begin{equation}
+\log\tilde{\mathcal{N}}(y\mid\mu,\epsilon^2)
+\approx-\frac12\left[
+\log(2\pi\epsilon^2)+\frac{r(y,\mu)^2}{\epsilon^2}
+\right].
+\label{eq:wrapped-gaussian-approx}
+\end{equation}
+При малом $\epsilon$ вклады дальних периодических образов экспоненциально малы.
+
+Для каждой пары точек определяется модельная плотность
+\begin{equation}
+p_\theta(y^n_j\mid x^n_m)
+=\sum_{r=1}^{K}\pi_r(x^n_m)
+\tilde{\mathcal{N}}\bigl(y^n_j\mid\mu_r(x^n_m),\epsilon^2\bigr)
+\label{eq:pairwise-decoder-density}
+\end{equation}
+и попарное отрицательное логарифмическое правдоподобие
+\begin{equation}
+D^n_{mj}=-\log p_\theta(y^n_j\mid x^n_m).
+\label{eq:pairwise-cost}
+\end{equation}
+Мягкая перестановка $z^n$ задаёт реконструкционный член
+\begin{equation}
+\mathcal{L}_{\mathrm{rec}}^n
+=\sum_{m=1}^{M}\sum_{j=1}^{M}z^n_{mj}D^n_{mj}.
+\label{eq:recon}
+\end{equation}
+
+\subsubsection{Обучение стохастическим градиентным методом}
+\label{ssec:sgd}
+
+Формулы~\eqref{eq:permutation-elbo}--\eqref{eq:nelbo} задают точную вариационную цель на
+пространстве перестановок. В реализации распределение Gumbel--Sinkhorn имеет неявную
+плотность, поэтому точный KL на $S_M$ недоступен. Для одной группы оптимизируется
+дифференцируемый суррогат
+\begin{equation}
+\mathcal{L}^n(\theta,\phi)
+=\underbrace{\sum_{m,k}z^n_{mk}D^n_{mk}}_{\text{реконструкция}}
++\beta\underbrace{\frac{1}{M}\sum_{m,k}z^{n,\mathrm{det}}_{mk}
+\bigl(\log z^{n,\mathrm{det}}_{mk}+\log M\bigr)}_{\text{построчный KL-суррогат}}.
+\label{eq:per-group-loss}
+\end{equation}
+Реконструкционный член оценивается одной Gumbel--Sinkhorn-выборкой, а KL-регуляризатор
+вычисляется по строкам детерминированной мягкой перестановки. Это практическая непрерывная
+аппроксимация оптимизации точной перестановочной NELBO, но не замена самой теоретической
+скрытой переменной набором независимых назначений.
+
+Обе матрицы из~\eqref{eq:stochastic-deterministic-z} дифференцируемы по $\Phi$. В основной
+реализации прямой проход выполняется фиксированным числом Sinkhorn-итераций, а обратный
+проход --- неявным дифференцированием неподвижной точки~\cite{eisenberger2022implicit}.
+Разворачивание итераций средствами автоматического дифференцирования сохранено как
+альтернативный вариант. Градиенты средней потери мини-батча ограничиваются по норме и
+используются оптимизатором Adam. Вес $\beta$ линейно увеличивается от $0$ до $1$, тогда как
+температура $\tau$ фиксирована на протяжении всего запуска.
+
+После обучения новая группа обрабатывается одним прямым проходом энкодера и
+детерминированной Sinkhorn-проекцией. Для извлечения жёсткой перестановки может применяться
+Hungarian matching; используемый в диагностических экспериментах построчный $\arg\max$ не
+гарантирует биективность.
+
+\begin{algorithm}[H]
+\caption{Нейросетевой вариационный подход с Gumbel--Sinkhorn-релаксацией}
+\label{alg:catvae}
+\begin{algorithmic}[1]
+\Require группы $\{(x^n,y^n)\}_{n=1}^{N}$; расписание $\beta(t)$; фиксированная
+температура $\tau$; фиксированная дисперсия $\epsilon^2$
+\State инициализировать параметры энкодера $\phi$ и декодера $\theta$
+\For{каждый шаг обучения $t$}
+  \State выбрать мини-батч $\mathcal{B}$ групп
+  \For{каждая группа $n\in\mathcal{B}$}
+    \State $\Phi^n\gets\operatorname{Encoder}_\phi(x^n,y^n)$
+    \State $z^n\gets\operatorname{Sinkhorn}((\Phi^n+G)/\tau)$
+    \State $z^{n,\mathrm{det}}\gets\operatorname{Sinkhorn}(\Phi^n/\tau)$
+    \State вычислить $D^n_{mk}=-\log p_\theta(y^n_k\mid x^n_m)$
+    \State вычислить $\mathcal{L}^n$ по~\eqref{eq:per-group-loss}
+  \EndFor
+  \State обновить $(\theta,\phi)$ градиентным шагом по средней потере мини-батча
+\EndFor
+\State \textbf{вывод:} применить детерминированную Sinkhorn-проекцию и извлечь перестановку
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Подход с явными смесями}
+\label{ssec:em}
+
+Во втором подходе нейросетевые энкодер и декодер не используются. Условное распределение
+задаётся глобальной смесью сдвигов, а распределение скрытых переменных --- явными
+ответственностями назначения и компоненты. Благодаря этой параметризации параметры можно
+обновлять аналитически в модифицированном EM-алгоритме, не применяя SGD и обратное
+распространение.
+
+\subsubsection{Явная параметризация распределений}
+
+Для каждой исходной точки вводится номер компоненты
+$c_m\sim\operatorname{Cat}(\pi_1,\dots,\pi_K)$, после чего
+\begin{equation}
+y_{\sigma(m)}\sim
+\tilde{\mathcal{N}}\bigl(x_m+s_{c_m},\epsilon^2\bigr).
+\label{eq:shift-model}
+\end{equation}
+Сдвиги $s_1,\dots,s_K$ и веса $\pi_1,\dots,\pi_K$ общие для всех точек и групп;
+$\theta=(s,\pi)$. В отличие от нейросетевого декодера, средние имеют заданный вид
+$x+s_c$, поэтому число оцениваемых параметров не зависит от сложности нейронной сети.
+
+Для одной группы попарное логарифмическое правдоподобие и условная ответственность
+компоненты равны
+\begin{align}
+L_{mk}&=\log\sum_{c=1}^{K}\pi_c
+\tilde{\mathcal{N}}(y_k\mid x_m+s_c,\epsilon^2),\\
+w_{mkc}&=
+\frac{\pi_c\tilde{\mathcal{N}}(y_k\mid x_m+s_c,\epsilon^2)}
+{\sum_{c'}\pi_{c'}\tilde{\mathcal{N}}(y_k\mid x_m+s_{c'},\epsilon^2)}.
+\label{eq:em-component-responsibility}
+\end{align}
+Здесь $w_{mkc}$ вычисляется аналитически из текущих параметров и играет роль явного
+факторизованного распределения компоненты при фиксированной паре $(m,k)$.
+
+\subsubsection{Модифицированный E-шаг}
+
+Точное апостериорное распределение назначения требует суммы по всем перестановкам:
+\begin{equation}
+q^{\mathrm{exact}}_{mk}
+=\sum_{\sigma\in S_M:\,\sigma(m)=k}
+\frac{\prod_i\exp L_{i,\sigma(i)}}
+{\sum_{\sigma'\in S_M}\prod_i\exp L_{i,\sigma'(i)}}.
+\end{equation}
+В модифицированном EM эта часть E-шага заменяется энтропийно-регуляризованным
+Sinkhorn-планом
+\begin{equation}
+q=\operatorname{Sinkhorn}(L/\tau)\in\mathcal{B}_M,
+\qquad
+q=\arg\max_{Q\in\mathcal{B}_M}
+\left\{\langle Q,L\rangle+\tau H(Q)\right\}.
+\label{eq:em-e}
+\end{equation}
+Совместная ответственность назначения и компоненты факторизуется как
+\begin{equation}
+r_{mkc}=q_{mk}w_{mkc}.
+\label{eq:em-joint-responsibility}
+\end{equation}
+Таким образом, компонентная часть E-шага имеет аналитический вид, а распределение
+перестановки вычисляется посредством Sinkhorn-аппроксимации вместо факториального перебора.
+
+\subsubsection{Аналитический M-шаг}
+
+После суммирования ответственностей по всем группам веса смеси обновляются формулой
+\begin{equation}
+S_c=\sum_{n,m,k}r^{(n)}_{mkc},
+\qquad
+\pi_c\leftarrow\frac{S_c}{\sum_{c'}S_{c'}}.
+\label{eq:em-m-pi}
+\end{equation}
+Сдвиг обновляется круговым средним разностей $\delta_{mk}=y_k-x_m$:
+\begin{equation}
+s_c\leftarrow\frac{1}{2\pi}\operatorname{atan2}\!\left(
+\sum_{n,m,k}r^{(n)}_{mkc}\sin(2\pi\delta_{mk}),
+\sum_{n,m,k}r^{(n)}_{mkc}\cos(2\pi\delta_{mk})
+\right)\bmod1.
+\label{eq:em-m-shift}
+\end{equation}
+Оба обновления вычисляются непосредственно и не требуют градиентных шагов. При нулевой
+ответственности компоненты её предыдущий сдвиг сохраняется.
+
+Алгоритм является модифицированным EM: точное апостериорное распределение перестановки
+заменено Sinkhorn-планом, а для обёрнутой нормальной плотности круговое моментное обновление
+не обязано совпадать с точным максимумом правдоподобия. Поэтому стандартная гарантия
+монотонного роста правдоподобия классического EM здесь не применяется. Температура $\tau$
+фиксирована на протяжении каждого запуска; в основных экспериментах используется
+$\tau=1$, а влияние других фиксированных значений исследуется отдельно. Сдвиги
+инициализируются по модам гистограммы попарных круговых разностей, а при невозможности
+выделить моды --- почти равномерно.
+
+\begin{algorithm}[H]
+\caption{Модифицированный EM для глобальной смеси сдвигов}
+\label{alg:em}
+\begin{algorithmic}[1]
+\Require группы $\{(x^n,y^n)\}_{n=1}^{N}$; число компонент $K$; фиксированная
+температура $\tau$; фиксированная дисперсия $\epsilon^2$
+\State инициализировать сдвиги $s_c$ и положить $\pi_c=1/K$
+\For{итерация $t=0,1,\dots$}
+  \State вычислить $L_{mk}$ и аналитические ответственности $w_{mkc}$
+  \State выполнить модифицированный E-шаг:
+  $q=\operatorname{Sinkhorn}(L/\tau)$ и $r_{mkc}=q_{mk}w_{mkc}$
+  \State выполнить аналитический M-шаг: обновить $\pi_c$ по~\eqref{eq:em-m-pi}
+  и $s_c$ по~\eqref{eq:em-m-shift}
+\EndFor
+\State \textbf{вывод:} вычислить $q$ при той же температуре и извлечь перестановку
+\end{algorithmic}
+\end{algorithm}

@@ -1,0 +1,52 @@
+\documentclass[a4paper, 12pt]{article}
+
+%% подключаем стандарт библиографии
+\bibliographystyle{gost71u}
+
+%% для "Abstract" в классе book
+% \newenvironment{abstract}{}{}
+% \usepackage{abstract}
+
+%% подключаем преамбулу: в ней содержится подключение всех необходимых пакетов
+\input{include/preambule.tex}
+
+\begin{document}
+    %% титульник
+    % \input{include/title-page.tex}
+    % \newpage
+
+    \setcounter{page}{2}
+    \fancyfoot[c]{\thepage}
+    %% *надпись над верхним колонтитулом*
+    %% в случае ненадобности можно удалить
+    \fancyhead[L]{\input{include/work-title.tex}}
+    \fancyhead[R]{}
+
+    %% аннотация
+    \input{parts/0Abstract.tex}
+    \newpage
+
+    %% содержание
+    \tableofcontents{}
+    \newpage
+
+    % \fontsize{14}{16}\selectfont
+    \input{parts/1Introduction.tex} %% Введение, Мотивация/актуальность
+    \newpage
+    \input{parts/2Background.tex} %% Обзор существующих решений, постановка мат задачи, постановка формальной проблематики
+    \newpage
+    \input{parts/3Method.tex} %% Исследование и построение решения задачи
+    \newpage
+    \input{parts/4Experiments.tex} %% Описание практической части
+    \newpage
+    \input{parts/5Discussion.tex} %% Заключение
+    \newpage
+
+    %% НЕ ТРОГАЙТЕ!!!
+    \nocite{*}
+    \bibliography{references}
+
+    %% в зависимости от надобности подключаем раздел "Приложение"
+    % \newpage
+    % \input{Appendix.tex}
+\end{document}

@@ -1,0 +1,11 @@
+--extra-index-url https://download.pytorch.org/whl/cu118
+
+numpy
+matplotlib
+seaborn
+pandas
+scipy
+jupyterlab
+notebook
+ipykernel
+tensorboard

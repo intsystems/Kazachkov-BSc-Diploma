@@ -1,0 +1,94 @@
+%% Работа с русским языком
+\usepackage{cmap}			 % поиск в PDF
+\usepackage{mathtext} 		 % русские буквы в формулах
+\usepackage[T2A]{fontenc}	 % кодировка
+\usepackage[utf8]{inputenc}	 % кодировка исходного текста
+\usepackage{tempora}		 % Times-совместимый шрифт с кириллицей (T2A) для pdflatex
+\usepackage[english,russian]{babel}	 % RU — основной язык шаблона, EN доступен для текста
+\usepackage{microtype}		 % уменьшает Overfull \hbox через protrusion/expansion шрифта
+
+%% Пакеты для работы с математикой
+\usepackage{amsmath,amsfonts,amssymb,amsthm,mathtools}
+\usepackage{icomma}
+
+%% Псевдокод алгоритмов
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+%% Нумерация формул (опционально)
+%\mathtoolsset{showonlyrefs=true} % показывать номера только у тех формул, на которые есть \eqref{} в тексте.
+%\usepackage{leqno}               % нумерация формул слева
+
+%% Некоторые полезные макросы для дебага (в случае недоверия авторам шаблона)
+\makeatletter
+\newcommand\thefontsize{The current font size is: \f@size pt} % пример: \section{\thefontsize}
+\makeatother
+
+%% Настройка размеров шрифтов
+\makeatletter
+\setlength{\headheight}{28pt}
+%% TODO: мне не удалось разобраться, как грамотно подбирать второе число в
+%% \@setfontsize\*, но ряд экспериментов показывает, что "10" выравнивает текст весьма прилично :)
+\renewcommand\Huge{\@setfontsize\Huge{14pt}{10}}
+\renewcommand\huge{\@setfontsize\huge{14pt}{10}}
+\renewcommand\Large{\@setfontsize\Large{14pt}{10}}
+\renewcommand\large{\@setfontsize\large{12pt}{10}}
+\makeatother
+
+%% Поля (геометрия страницы)
+\usepackage[left=3cm,right=1.5cm,top=2cm,bottom=2cm,bindingoffset=0cm]{geometry}
+
+%% Русские списки
+\usepackage{enumitem}
+\makeatletter
+\AddEnumerateCounter{\asbuk}{\russian@alph}{щ}
+\makeatother
+
+%% Работа с картинками
+\usepackage{caption} % пакет для подписей к рисункам, в частности, для работы caption*
+\captionsetup{justification=centering} % центрирование подписей к картинкам
+\usepackage{graphicx}                  % вставки рисунков
+\graphicspath{{images/}{images2/}}     % папки с картинками
+\setlength\fboxsep{3pt}                % отступ рамки \fbox{} от рисунка
+\setlength\fboxrule{1pt}               % толщина линий рамки \fbox{}
+\usepackage{wrapfig}                   % обтекание рисунков и таблиц текстом
+
+%% Работа с таблицами
+\usepackage{array,tabularx,tabulary,booktabs} % дополнительная работа с таблицами
+\usepackage{longtable}                        % длинные таблицы
+\usepackage{multirow}                         % слияние строк и столбцов в таблице
+\usepackage{makecell}                         % создание ячеек с многими строчками текста
+\usepackage{hhline}                           % позволяет разрывать горизонтальные линии в таблицах
+
+%% Красная строка
+\setlength{\parindent}{1.25cm}
+
+%% Интервалы
+\usepackage{setspace}
+\onehalfspacing
+
+%% TikZ
+\usepackage{tikz}
+\usetikzlibrary{graphs,graphs.standard}
+
+%% Верхний колонтитул
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+
+%% Перенос знаков в формулах (по Львовскому)
+\newcommand*{\hm}[1]{#1\nobreak\discretionary{}{\hbox{$\mathsurround=0pt #1$}}{}}
+
+%% Дополнительно
+\usepackage{float}   % добавляет возможность работы с командой [H] которая улучшает расположение на странице
+\usepackage{listings} % пакет для листингов с кодом
+\lstset{              % настройки для лисингов с кодом
+basicstyle=\small\ttfamily,
+columns=flexible,
+breaklines=true
+}
+
+% Hyperref (для ссылок внутри  pdf)
+\usepackage[unicode, pdftex]{hyperref}
+
+% Отступ перед первым абзацем в каждом разделе
+\usepackage{indentfirst}

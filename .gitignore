@@ -1,0 +1,17 @@
+.DS_Store
+__pycache__/
+figures/
+docs/**/out/
+docs/supporting_materials
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.nav
+*.out
+*.snm
+*.synctex.gz
+*.toc
+

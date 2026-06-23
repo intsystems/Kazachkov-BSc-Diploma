@@ -1,0 +1,3 @@
+[submodule "BatchTransferOperator"]
+	path = BatchTransferOperator
+	url = https://github.com/OTGroupGoe/BatchTransferOperator.git

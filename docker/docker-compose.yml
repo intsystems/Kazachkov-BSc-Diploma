@@ -1,0 +1,23 @@
+services:
+  python-app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: python_gpu_science_stack
+    user: "${CURRENT_UID}:${CURRENT_GID}"
+    working_dir: /app
+    volumes:
+      - ../:/app
+    ports:
+      - "8890:8888"
+      - "${TENSORBOARD_PORT:-6006}:6006"
+    stdin_open: true
+    tty: true
+    command: tail -f /dev/null
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
